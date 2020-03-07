@@ -13,6 +13,7 @@ from owslib.wps import WPSException
 from pywps import Process as ProcessWPS
 
 from weaver.exceptions import ProcessInstanceError
+from weaver.formats import CONTENT_TYPE_APP_JSON, LANGUAGE_EN_US
 from weaver.processes.convert import ows2json_io_FIXME  # FIXME: duplicate functions
 from weaver.processes.convert import get_field, ows2json_io, wps2json_io
 from weaver.processes.types import PROCESS_APPLICATION, PROCESS_BUILTIN, PROCESS_TEST, PROCESS_WORKFLOW, PROCESS_WPS
@@ -24,6 +25,7 @@ from weaver.status import (
     STATUS_UNKNOWN,
     map_status
 )
+from weaver.typedefs import XML
 from weaver.utils import localize_datetime  # for backward compatibility of previously saved jobs not time-locale-aware
 from weaver.utils import fully_qualified_name, get_job_log_msg, get_log_date_fmt, get_log_fmt, get_settings, now
 from weaver.visibility import VISIBILITY_PRIVATE, VISIBILITY_VALUES
@@ -554,7 +556,7 @@ class Job(Base):
     def request(self, request):
         # type: (Optional[str]) -> None
         """XML request for WPS execution submission as string (binary)."""
-        if isinstance(request, lxml.etree._Element):  # noqa
+        if isinstance(request, XML):
             request = lxml.etree.tostring(request)
         self["request"] = request
 
@@ -568,15 +570,15 @@ class Job(Base):
     def response(self, response):
         # type: (Optional[str]) -> None
         """XML status response from WPS execution submission as string (binary)."""
-        if isinstance(response, lxml.etree._Element):  # noqa
+        if isinstance(response, XML):
             response = lxml.etree.tostring(response)
         self["response"] = response
 
     def _job_url(self, settings):
         base_job_url = get_wps_restapi_base_url(settings)
         if self.service is not None:
-            base_job_url += sd.provider_uri.format(provider_id=self.service)
-        job_path = sd.process_job_uri.format(process_id=self.process, job_id=self.id)
+            base_job_url += sd.provider_service.path.format(provider_id=self.service)
+        job_path = sd.process_job_service.path.format(process_id=self.process, job_id=self.id)
         return "{base_job_url}{job_path}".format(base_job_url=base_job_url, job_path=job_path)
 
     def json(self, container=None):     # pylint: disable=W0221,arguments-differ
@@ -594,17 +596,23 @@ class Job(Base):
             "message": self.status_message,
             "duration": self.duration_str,
             "percentCompleted": self.progress,
+            "links": []
         }
         job_url = self._job_url(settings)
-        # TODO: use links (https://github.com/crim-ca/weaver/issues/58)
+        job_json["links"].append({"href": job_url, "rel": "self", "title": "Job status."})
+        job_links = ["logs", "inputs"]
         if self.status in JOB_STATUS_CATEGORIES[STATUS_CATEGORY_FINISHED]:
             job_status = map_status(self.status)
             if job_status == STATUS_SUCCEEDED:
-                resource_type = "result"
+                job_links.extend(["outputs", "results"])
             else:
-                resource_type = "exceptions"
-            job_json[resource_type] = "{job_url}/{res}".format(job_url=job_url, res=resource_type.lower())
-        job_json["logs"] = "{job_url}/logs".format(job_url=job_url)
+                job_links.extend(["exceptions"])
+        for link_type in job_links:
+            link_href = "{job_url}/{res}".format(job_url=job_url, res=link_type)
+            job_json["links"].append({"href": link_href, "rel": link_type, "title": "Job {}.".format(link_type)})
+        link_meta = {"type": CONTENT_TYPE_APP_JSON, "hreflang": LANGUAGE_EN_US}
+        for link in job_json["links"]:
+            link.update(link_meta)
         return sd.JobStatusInfo().deserialize(job_json)
 
     def params(self):

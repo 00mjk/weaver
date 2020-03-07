@@ -1,5 +1,10 @@
 from typing import TYPE_CHECKING
 
+import lxml.etree
+
+# define this type here so that code can use it for actual logic without repeating 'noqa'
+XML = lxml.etree._Element  # noqa
+
 if TYPE_CHECKING:
     import os
     import typing
@@ -13,7 +18,6 @@ if TYPE_CHECKING:
     else:
         FileSystemPathType = str
 
-    import lxml.etree
     from celery.app import Celery
     from pyramid.httpexceptions import HTTPSuccessful, HTTPRedirection
     from pyramid.registry import Registry
@@ -50,8 +54,7 @@ if TYPE_CHECKING:
                             "requirements": JSON, "hints": JSON, "label": str, "doc": str, "s:keywords": str,
                             "$namespaces": Dict[str, str], "$schemas": Dict[str, str]}, total=False)
     KVPType = Union[ValueType, Sequence[ValueType]]
-    KVP = Union[Sequence[Tuple[str, KVPType]], Dict[str, KVPType]]
-    XML = lxml.etree._Element  # noqa
+    KVP = Dict[str, KVPType]
 
     AnyContainer = Union[Configurator, Registry, PyramidRequest, Celery]
     SettingValue = Optional[Union[JSON, AnyValue]]
