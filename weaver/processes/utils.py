@@ -224,7 +224,7 @@ def deploy_process_from_payload(payload, container):
         raise HTTPBadRequest(detail=str(ex))
 
     json_response = {"processSummary": saved_process.process_summary(), "deploymentDone": True}
-    return HTTPOk(json=json_response)   # FIXME: should be 201 (created), update swagger accordingly
+    return HTTPCreated(json=json_response)
 
 
 def parse_wps_process_config(config_entry):
