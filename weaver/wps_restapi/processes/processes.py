@@ -76,7 +76,7 @@ def get_provider_processes(request):
     store = get_db(request).get_store(StoreServices)
     service = store.fetch_by_name(provider_id)
     processes = list_remote_processes(service, request)
-    return HTTPOk(json={"processes": [p.process_summary() for p in processes]})
+    return HTTPOk(json={"processes": [p.summary() for p in processes]})
 
 
 def describe_provider_process(request):
@@ -106,8 +106,10 @@ def get_provider_process(request):
     """
     try:
         process = describe_provider_process(request)
-        process_offering = process.process_offering()
+        sd.ProcessOffering().deserialize(process)
+        process_offering = process.offering()
         return HTTPOk(json=process_offering)
+    # FIXME: handle colander invalid directly in tween (https://github.com/crim-ca/weaver/issues/112)
     except colander.Invalid as ex:
         raise HTTPBadRequest("Invalid schema: [{!s}]".format(ex))
 
@@ -124,7 +126,7 @@ def get_processes_filtered_by_valid_schemas(request):
     invalid_processes_ids = list()
     for process in processes:
         try:
-            valid_processes.append(process.process_summary())
+            valid_processes.append(process.summary())
         except colander.Invalid as invalid:
             LOGGER.debug("Invalid process [%s] because:\n%s", process.identifier, invalid)
             invalid_processes_ids.append(process.identifier)
@@ -153,6 +155,7 @@ def get_processes(request):
         settings = get_settings(request)
         if get_weaver_configuration(settings) == WEAVER_CONFIGURATION_EMS:
             queries = parse_request_query(request)
+            # FIXME: many steps below suppose that everything goes well...
             if "providers" in queries and asbool(queries["providers"][0]) is True:
                 prov_url = "{host}/providers".format(host=request.host_url)
                 providers_response = request_extra("GET", prov_url, settings=settings,
@@ -166,9 +169,10 @@ def get_processes(request):
                                              headers=request.headers, cookies=request.cookies)
                     processes = response.json().get("processes", [])
                     response_body["providers"][i].update({
-                        "processes": processes if detail else [get_any_id(p) for p in processes]
+                        "processes": processes if detail else [get_any_id(proc) for proc in processes.json()]
                     })
         return HTTPOk(json=response_body)
+    # FIXME: handle colander invalid directly in tween (https://github.com/crim-ca/weaver/issues/112)
     except colander.Invalid as ex:
         raise HTTPBadRequest("Invalid schema: [{!s}]".format(ex))
 
@@ -193,8 +197,10 @@ def get_local_process(request):
     try:
         process = get_process(request=request)
         process["inputs"] = opensearch.replace_inputs_describe_process(process.inputs, process.payload)
-        process_offering = process.process_offering()
+        sd.ProcessOffering().deserialize(process)  # validate
+        process_offering = process.offering()
         return HTTPOk(json=process_offering)
+    # FIXME: handle colander invalid directly in tween (https://github.com/crim-ca/weaver/issues/112)
     except colander.Invalid as ex:
         raise HTTPBadRequest("Invalid schema: [{!s}]".format(ex))
 
