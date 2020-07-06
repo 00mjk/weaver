@@ -658,7 +658,7 @@ class Job(Base):
             "percentCompleted": self.progress,
         }
         job_json.update(self.links(settings, self_link=self_link))
-        return sd.JobStatusInfo().serialize(job_json)
+        return sd.JobStatusInfo().deserialize(job_json)
 
     def params(self):
         # type: () -> Dict[str, Any]
@@ -922,7 +922,7 @@ class Process(Base):
         """
         Obtains the JSON serializable complete representation of the process.
         """
-        return sd.Process().serialize(self)
+        return sd.Process().deserialize(self)
 
     def offering(self):
         # type: () -> JSON
@@ -936,14 +936,14 @@ class Process(Base):
             process_offering.update({"jobControlOptions": self.jobControlOptions})
         if self.outputTransmission:
             process_offering.update({"outputTransmission": self.outputTransmission})
-        return sd.ProcessOffering().serialize(process_offering)
+        return sd.ProcessOffering().deserialize(process_offering)
 
     def summary(self):
         # type: () -> JSON
         """
         Obtains the JSON serializable summary representation of the process.
         """
-        return sd.ProcessSummary().serialize(self)
+        return sd.ProcessSummary().deserialize(self)
 
     @staticmethod
     def from_wps(wps_process, **extra_params):
@@ -1145,7 +1145,7 @@ class Quote(Base):
 
     def json(self):
         # type: () -> JSON
-        return sd.QuoteSchema().serialize(self)
+        return sd.QuoteSchema().deserialize(self)
 
 
 class Bill(Base):
@@ -1246,4 +1246,4 @@ class Bill(Base):
 
     def json(self):
         # type: () -> JSON
-        return sd.BillSchema().serialize(self)
+        return sd.BillSchema().deserialize(self)
